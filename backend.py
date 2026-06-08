@@ -1,62 +1,94 @@
-from groq import Groq
+import os
+import json
 import base64
 from dotenv import load_dotenv
-import os 
+from groq import Groq
 
 
-class ImageAgent:
-	def __init__(self):
-		load_dotenv()
-		self.client = Groq(api_key=os.environ["GROQ_API_KEY"])
+class ExpenseAgent:
+    def __init__(self):
+        load_dotenv()
 
+        self.client = Groq(
+            api_key=os.getenv("GROQ_API_KEY")
+        )
 
-	@staticmethod
-	def read_file(file_path):
-		with open(file_path, "r") as file:
-			return file.read()
+        base_dir = os.path.dirname(os.path.abspath(__file__))
 
+        with open(os.path.join(base_dir, "context.txt"), "r", encoding="utf-8") as f:
+            self.context = f.read()
 
-	@staticmethod
-	def encode_image(image_path):
-		with open(image_path, "rb") as image_file:
-			return base64.b64encode(image_file.read()).decode('utf-8')
+        with open(os.path.join(base_dir, "prompt.txt"), "r", encoding="utf-8") as f:
+            self.prompt = f.read()
 
+        self.expected_fields = {
+            "type_document": None, #gere erreur si le json ne retourne rien
+            "fournisseur": None,
+            "date": None,
+            "montant_ttc": None,
+            "tva": None,
+            "devise": "EUR",
+            "description": None,
+            "confiance": None,
+        }
 
-	def ask_vision_model(self, image_path):
+    def extract_from_bytes(self, image_bytes, media_type):
+        image_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
-		base64_image = ImageAgent.encode_image(image_path=image_path)
+        response = self.client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            response_format={"type": "json_object"},
+            messages=[
+                {
+                    "role": "system",
+                    "content": self.context,
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": self.prompt,
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{media_type};base64,{image_base64}"
+                            },
+                        },
+                    ],
+                },
+            ],
+        )
 
-		chat_completion = self.client.chat.completions.create(
-			messages=[
-				{
-					"role": "system",
-					"content": ImageAgent.read_file(file_path="./context.txt")
-				},
-				{
-					"role": "user",
-					"content": [
-						{"type": "text", "text": ImageAgent.read_file(file_path="./prompt.txt")},
-						{
-							"type": "image_url",
-							"image_url": {
-								"url": f"data:image/jpeg;base64,{base64_image}",
-							},
-						},
-					], 
-				}
-			],
+        content = response.choices[0].message.content
 
-			model="meta-llama/llama-4-scout-17b-16e-instruct"
-		)
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError:
+            data = {}
 
-		return chat_completion.choices[0].message.content
+        result = self.expected_fields.copy()
 
+        for field in self.expected_fields:
+            if field in data:
+                result[field] = data[field]
 
+        return result
 
 if __name__ == "__main__":
-	image_agent_object = ImageAgent()
 
-	image_path = "image.jpg"
-	image_description = image_agent_object.ask_vision_model(image_path=image_path)
-	
-	print(image_description)
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    image_path = os.path.join(base_dir, "receipts", "1000-receipt.jpg")
+
+    with open(image_path, "rb") as file:
+        image_bytes = file.read()
+
+    agent = ExpenseAgent()
+
+    result = agent.extract_from_bytes(
+        image_bytes=image_bytes,
+        media_type="image/jpeg"
+    )
+
+    print(result)

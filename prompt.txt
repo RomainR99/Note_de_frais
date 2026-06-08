@@ -1,0 +1,52 @@
+Analyse l'image fournie et retourne uniquement un JSON valide respectant exactement la structure suivante :
+
+{
+"type_document": "restaurant|transport|hotel|autre",
+"fournisseur": "string|null",
+"date": "JJ/MM/AAAA|null",
+"montant_ttc": "number|null",
+"tva": "number|null",
+"devise": "string",
+"description": "string|null",
+"confiance": "number"
+}
+
+Description des champs :
+
+* type_document :
+  Catégorie du justificatif.
+  Valeurs autorisées :
+
+  * restaurant
+  * transport
+  * hotel
+  * autre
+
+* fournisseur :
+  Nom du commerce, restaurant, hôtel ou compagnie de transport.
+
+* date :
+  Date de la dépense au format JJ/MM/AAAA.
+
+* montant_ttc :
+  Montant total TTC du justificatif.
+  Type : nombre décimal.
+
+* tva :
+  Montant de TVA indiqué sur le document.
+  Si absent ou illisible : null.
+
+* devise :
+  Devise utilisée.
+  Exemple : EUR, USD, GBP.
+  Si aucune devise n'est visible : EUR.
+
+* description :
+  Courte description du motif de la dépense basée sur le contenu du document.
+
+* confiance :
+  Nombre entier compris entre 0 et 100 représentant la fiabilité de l'extraction.
+
+Si une information est absente ou illisible, retourne null pour le champ concerné.
+
+Retourne uniquement le JSON.
