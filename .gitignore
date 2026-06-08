@@ -222,3 +222,4 @@ credentials.json
 *.json
 
 receipts/
+uploads/
