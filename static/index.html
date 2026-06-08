@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Note de frais</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <h1>Note de frais</h1>
+      <p class="subtitle">Capturez un justificatif, vérifiez les données extraites, puis envoyez vers Google Sheets.</p>
+    </header>
+
+    <section class="card" id="expenses-section">
+      <h2>Notes enregistrées</h2>
+      <div
+        id="expenses-list"
+        hx-get="/api/expenses"
+        hx-trigger="load, expensesUpdated from:body"
+        hx-swap="innerHTML"
+      >
+        <p class="empty-state">Chargement…</p>
+      </div>
+    </section>
+
+    <section id="upload-section" class="card">
+      <h2>1. Justificatif</h2>
+
+      <form
+        id="analyze-form"
+        hx-post="/api/analyze"
+        hx-target="#form-container"
+        hx-swap="innerHTML"
+        hx-encoding="multipart/form-data"
+        enctype="multipart/form-data"
+      >
+        <label class="upload-zone" for="image-input">
+          <span class="upload-icon">📷</span>
+          <span class="upload-text">Prendre une photo / Choisir un fichier</span>
+          <span class="upload-hint">JPG, PNG — max 10 Mo</span>
+          <input
+            type="file"
+            id="image-input"
+            name="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+          >
+        </label>
+
+        <div id="preview-container" class="preview-container hidden">
+          <img id="preview" alt="Aperçu du justificatif">
+        </div>
+
+        <div id="analyze-indicator" class="htmx-indicator">
+          Analyse en cours…
+        </div>
+
+        <button type="submit" id="analyze-btn" class="btn btn-primary" disabled>
+          Analyser le justificatif
+        </button>
+      </form>
+    </section>
+
+    <section id="form-container" class="form-container"></section>
+
+    <section id="confirmation-container" class="confirmation-container"></section>
+
+    <div class="actions-footer hidden" id="reset-section">
+      <button type="button" id="reset-btn" class="btn btn-secondary">
+        Nouvelle note de frais
+      </button>
+    </div>
+  </main>
+
+  <div id="image-modal" class="image-modal hidden" aria-hidden="true">
+    <div class="image-modal-backdrop" data-close-modal></div>
+    <div class="image-modal-content">
+      <button type="button" class="image-modal-close" data-close-modal aria-label="Fermer">×</button>
+      <img id="modal-image" alt="Justificatif">
+    </div>
+  </div>
+</body>
+</html>

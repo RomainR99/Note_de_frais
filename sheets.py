@@ -49,6 +49,31 @@ class GoogleSheetsClient:
 
         return row
 
+    def list_expenses(self) -> list[dict]:
+        rows = self.worksheet.get_all_values()
+        if len(rows) <= 1:
+            return []
+
+        expenses = []
+        for row in reversed(rows[1:]):
+            padded = row + [""] * (10 - len(row))
+            expenses.append(
+                {
+                    "horodatage": padded[0],
+                    "type_document": padded[1],
+                    "fournisseur": padded[2],
+                    "date": padded[3],
+                    "montant_ttc": padded[4],
+                    "tva": padded[5],
+                    "devise": padded[6],
+                    "description": padded[7],
+                    "confiance": padded[8],
+                    "image_url": padded[9],
+                }
+            )
+
+        return expenses
+
 
 if __name__ == "__main__":
     sheets_client = GoogleSheetsClient()

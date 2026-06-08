@@ -17,3 +17,16 @@ https://www.googleapis.com/auth/userinfo.email
 https://www.googleapis.com/auth/userinfo.profile
 https://www.googleapis.com/auth/drive.file
 ```
+
+### Dossier Drive pour les images
+
+Pour enregistrer les justificatifs dans la colonne **Image** du Google Sheet :
+
+1. Créez un dossier dans Google Drive (ex. `Justificatifs notes de frais`)
+2. Partagez-le avec l'email du compte de service (`client_email` dans `credentials.json`) en tant qu'**Éditeur**
+3. Copiez l'ID du dossier depuis l'URL (`https://drive.google.com/drive/folders/ID_ICI`)
+4. Ajoutez-le dans `.env` :
+
+```
+GOOGLE_DRIVE_FOLDER_ID="votre_id_de_dossier"
+```
