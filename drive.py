@@ -2,28 +2,21 @@ import os
 from datetime import datetime
 
 from dotenv import load_dotenv
-from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaInMemoryUpload
+
+from google_credentials import get_google_credentials
 
 
 class GoogleDriveClient:
     def __init__(self):
         load_dotenv()
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        credentials_file = os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json")
-        credentials_path = os.path.join(base_dir, credentials_file)
-
         scopes = [
             "https://www.googleapis.com/auth/drive",
         ]
 
-        credentials = Credentials.from_service_account_file(
-            credentials_path,
-            scopes=scopes,
-        )
-
+        credentials = get_google_credentials(scopes)
         self.service = build("drive", "v3", credentials=credentials)
         folder_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "").strip()
         self.folder_id = folder_id or None

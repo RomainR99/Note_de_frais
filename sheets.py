@@ -1,28 +1,22 @@
 import os
 from datetime import datetime
+
 from dotenv import load_dotenv
 import gspread
-from google.oauth2.service_account import Credentials
+
+from google_credentials import get_google_credentials
 
 
 class GoogleSheetsClient:
     def __init__(self):
         load_dotenv()
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        credentials_file = os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json")
-        credentials_path = os.path.join(base_dir, credentials_file)
-
         scopes = [
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive",
         ]
 
-        credentials = Credentials.from_service_account_file(
-            credentials_path,
-            scopes=scopes,
-        )
-
+        credentials = get_google_credentials(scopes)
         self.client = gspread.authorize(credentials)
 
         sheet_id = os.getenv("GOOGLE_SHEET_ID")

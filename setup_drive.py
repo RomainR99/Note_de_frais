@@ -1,31 +1,15 @@
-import json
 import os
 import sys
 
 from dotenv import load_dotenv
-from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-
-def get_service_account_email() -> str:
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    credentials_file = os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json")
-    credentials_path = os.path.join(base_dir, credentials_file)
-
-    with open(credentials_path, encoding="utf-8") as file:
-        return json.load(file)["client_email"]
+from google_credentials import get_google_credentials, get_service_account_email
 
 
 def validate_folder(folder_id: str) -> None:
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    credentials_file = os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json")
-    credentials_path = os.path.join(base_dir, credentials_file)
-
-    credentials = Credentials.from_service_account_file(
-        credentials_path,
-        scopes=["https://www.googleapis.com/auth/drive"],
-    )
+    credentials = get_google_credentials(["https://www.googleapis.com/auth/drive"])
     service = build("drive", "v3", credentials=credentials)
 
     metadata = (
