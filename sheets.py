@@ -3,8 +3,9 @@ from datetime import datetime
 
 from dotenv import load_dotenv
 import gspread
+from gspread.exceptions import APIError, SpreadsheetNotFound, WorksheetNotFound
 
-from google_credentials import get_google_credentials
+from google_credentials import get_google_credentials, get_service_account_email
 
 
 class GoogleSheetsClient:
@@ -19,11 +20,45 @@ class GoogleSheetsClient:
         credentials = get_google_credentials(scopes)
         self.client = gspread.authorize(credentials)
 
-        sheet_id = os.getenv("GOOGLE_SHEET_ID")
-        sheet_name = os.getenv("GOOGLE_SHEET_NAME", "Notes de frais")
+        sheet_id = os.getenv("GOOGLE_SHEET_ID", "").strip()
+        sheet_name = os.getenv("GOOGLE_SHEET_NAME", "Justificatifs notes de frais").strip()
 
-        self.sheet = self.client.open_by_key(sheet_id)
-        self.worksheet = self.sheet.worksheet(sheet_name)
+        if not sheet_id:
+            raise ValueError(
+                "GOOGLE_SHEET_ID manquant. Ajoutez-le dans les variables Railway."
+            )
+
+        try:
+            self.sheet = self.client.open_by_key(sheet_id)
+        except SpreadsheetNotFound as exc:
+            raise ValueError(
+                f"Google Sheet introuvable (ID: {sheet_id}). "
+                f"Vérifiez GOOGLE_SHEET_ID et partagez le fichier avec "
+                f"{get_service_account_email()} en Éditeur."
+            ) from exc
+        except APIError as exc:
+            if exc.response.status_code == 404:
+                raise ValueError(
+                    f"Google Sheet introuvable (ID: {sheet_id}). "
+                    f"Vérifiez GOOGLE_SHEET_ID et partagez le fichier avec "
+                    f"{get_service_account_email()} en Éditeur."
+                ) from exc
+            raise
+
+        worksheets = self.sheet.worksheets()
+
+        try:
+            self.worksheet = self.sheet.worksheet(sheet_name)
+        except WorksheetNotFound as exc:
+            if len(worksheets) == 1:
+                self.worksheet = worksheets[0]
+            else:
+                available = ", ".join(ws.title for ws in worksheets)
+                raise ValueError(
+                    f"Feuille « {sheet_name} » introuvable. "
+                    f"Feuilles disponibles : {available}. "
+                    f"Corrigez GOOGLE_SHEET_NAME sur Railway."
+                ) from exc
 
     def append_expense(self, data: dict, image_url: str = None):
         row = [
