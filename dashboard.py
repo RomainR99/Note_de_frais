@@ -82,6 +82,28 @@ def compute_monthly_stats(expenses: list[dict], year: int, month: int) -> dict:
     }
 
 
+def resolve_month(expenses: list[dict], selected_month: str) -> tuple[int, int]:
+    months = available_months(expenses)
+    now = datetime.now()
+
+    if selected_month:
+        year_str, month_str = selected_month.split("-")
+        return int(year_str), int(month_str)
+    if months:
+        return months[0]
+    return now.year, now.month
+
+
+def filter_expenses_by_month(
+    expenses: list[dict], year: int, month: int
+) -> list[dict]:
+    return [
+        expense
+        for expense in expenses
+        if get_expense_month(expense) == (year, month)
+    ]
+
+
 def available_months(expenses: list[dict]) -> list[tuple[int, int]]:
     months = set()
     for expense in expenses:

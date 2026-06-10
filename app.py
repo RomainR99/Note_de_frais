@@ -6,11 +6,12 @@ from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, Query, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from backend import ExpenseAgent
-from dashboard import available_months, compute_monthly_stats
+from dashboard import available_months, compute_monthly_stats, resolve_month
+from pdf_export import generate_monthly_pdf
 from image_utils import save_image
 from sheets import GoogleSheetsClient
 
@@ -196,15 +197,8 @@ MONTH_NAMES = [
 
 def render_dashboard(expenses: list[dict], selected_month: str) -> str:
     months = available_months(expenses)
-    now = datetime.now()
-
-    if selected_month:
-        year_str, month_str = selected_month.split("-")
-        year, month = int(year_str), int(month_str)
-    elif months:
-        year, month = months[0]
-    else:
-        year, month = now.year, now.month
+    year, month = resolve_month(expenses, selected_month)
+    month_key = f"{year:04d}-{month:02d}"
 
     stats = compute_monthly_stats(expenses, year, month)
     month_label = f"{MONTH_NAMES[month]} {year}"
@@ -217,19 +211,26 @@ def render_dashboard(expenses: list[dict], selected_month: str) -> str:
             selected = " selected" if y == year and m == month else ""
             options.append(f'<option value="{value}"{selected}>{label}</option>')
         month_selector = f"""
-        <label class="dashboard-filter">
-          Mois
-          <select
-            name="month"
-            hx-get="/api/dashboard"
-            hx-target="#dashboard-content"
-            hx-swap="innerHTML"
-            hx-trigger="change"
-            hx-include="this"
-          >
-            {"".join(options)}
-          </select>
-        </label>
+        <div class="dashboard-actions">
+          <label class="dashboard-filter">
+            Mois
+            <select
+              name="month"
+              hx-get="/api/dashboard"
+              hx-target="#dashboard-content"
+              hx-swap="innerHTML"
+              hx-trigger="change"
+              hx-include="this"
+            >
+              {"".join(options)}
+            </select>
+          </label>
+          <a
+            class="btn btn-small btn-export"
+            href="/api/export/pdf?month={_escape(month_key)}"
+            target="_blank"
+          >Export PDF</a>
+        </div>
         """
     else:
         month_selector = f'<p class="empty-state">Aucune dépense pour {month_label}.</p>'
@@ -296,6 +297,29 @@ def render_dashboard(expenses: list[dict], selected_month: str) -> str:
 @app.get("/")
 async def index():
     return FileResponse(os.path.join(static_dir, "index.html"))
+
+
+@app.get("/api/export/pdf")
+async def export_pdf(month: Optional[str] = Query(None)):
+    try:
+        sheets_client = GoogleSheetsClient()
+        expenses = sheets_client.list_expenses()
+        year, month_num = resolve_month(expenses, month or "")
+
+        pdf_bytes = generate_monthly_pdf(expenses, year, month_num)
+        filename = f"notes-de-frais-{year:04d}-{month_num:02d}.pdf"
+
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except Exception as exc:
+        return Response(
+            content=str(exc).encode("utf-8"),
+            status_code=500,
+            media_type="text/plain",
+        )
 
 
 @app.get("/api/dashboard", response_class=HTMLResponse)
