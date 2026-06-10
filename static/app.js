@@ -39,6 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
         alert.scrollIntoView({ behavior: "smooth", block: "nearest" });
         if (alert.classList.contains("alert-success")) {
           document.body.dispatchEvent(new Event("expensesUpdated"));
+          document.body.dispatchEvent(new Event("dashboardUpdated"));
         }
       }
     }

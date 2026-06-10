@@ -15,6 +15,18 @@
       <p class="subtitle">Capturez un justificatif, vérifiez les données extraites, puis envoyez vers Google Sheets.</p>
     </header>
 
+    <section class="card" id="dashboard-section">
+      <h2>Tableau de bord</h2>
+      <div
+        id="dashboard-content"
+        hx-get="/api/dashboard"
+        hx-trigger="load, expensesUpdated from:body"
+        hx-swap="innerHTML"
+      >
+        <p class="empty-state">Chargement…</p>
+      </div>
+    </section>
+
     <section class="card" id="expenses-section">
       <h2>Notes enregistrées</h2>
       <div

@@ -233,6 +233,64 @@ textarea {
   margin-top: 0.5rem;
 }
 
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.dashboard-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.dashboard-filter {
+  min-width: 180px;
+  margin: 0;
+}
+
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.stat-value {
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.dashboard-subtitle {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.dashboard-table th,
+.dashboard-table td {
+  white-space: nowrap;
+}
+
 .empty-state {
   margin: 0;
   color: var(--text-muted);
@@ -348,6 +406,15 @@ textarea {
 @media (max-width: 520px) {
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .container {

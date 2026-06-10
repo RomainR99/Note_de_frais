@@ -1,14 +1,16 @@
 import base64
 import html
 import os
+from datetime import datetime
 from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend import ExpenseAgent
+from dashboard import available_months, compute_monthly_stats
 from image_utils import save_image
 from sheets import GoogleSheetsClient
 
@@ -89,6 +91,11 @@ def render_form(data: dict, image_base64: str, media_type: str) -> str:
         Devise
         <input type="text" name="devise" value="{_escape(data.get("devise") or "EUR")}">
       </label>
+
+      <label>
+        Employé
+        <input type="text" name="employe" placeholder="Nom de l'employé" value="{_escape(data.get("employe"))}">
+      </label>
     </div>
 
     <label>
@@ -124,6 +131,7 @@ def render_expenses_list(expenses: list[dict]) -> str:
             <tr>
               <td>{_escape(expense.get("horodatage"))}</td>
               <td>{_escape(expense.get("type_document"))}</td>
+              <td>{_escape(expense.get("employe") or "—")}</td>
               <td>{_escape(expense.get("fournisseur"))}</td>
               <td>{_escape(expense.get("date"))}</td>
               <td>{_escape(expense.get("montant_ttc"))} {_escape(expense.get("devise"))}</td>
@@ -140,6 +148,7 @@ def render_expenses_list(expenses: list[dict]) -> str:
           <tr>
             <th>Horodatage</th>
             <th>Type</th>
+            <th>Employé</th>
             <th>Fournisseur</th>
             <th>Date</th>
             <th>Montant</th>
@@ -168,9 +177,135 @@ def render_confirmation(success: bool, message: str, image_url: str = None) -> s
     return f'<div class="alert {css_class}">{content}</div>'
 
 
+MONTH_NAMES = [
+    "",
+    "Janvier",
+    "Février",
+    "Mars",
+    "Avril",
+    "Mai",
+    "Juin",
+    "Juillet",
+    "Août",
+    "Septembre",
+    "Octobre",
+    "Novembre",
+    "Décembre",
+]
+
+
+def render_dashboard(expenses: list[dict], selected_month: str) -> str:
+    months = available_months(expenses)
+    now = datetime.now()
+
+    if selected_month:
+        year_str, month_str = selected_month.split("-")
+        year, month = int(year_str), int(month_str)
+    elif months:
+        year, month = months[0]
+    else:
+        year, month = now.year, now.month
+
+    stats = compute_monthly_stats(expenses, year, month)
+    month_label = f"{MONTH_NAMES[month]} {year}"
+
+    if months:
+        options = []
+        for y, m in months:
+            value = f"{y:04d}-{m:02d}"
+            label = f"{MONTH_NAMES[m]} {y}"
+            selected = " selected" if y == year and m == month else ""
+            options.append(f'<option value="{value}"{selected}>{label}</option>')
+        month_selector = f"""
+        <label class="dashboard-filter">
+          Mois
+          <select
+            name="month"
+            hx-get="/api/dashboard"
+            hx-target="#dashboard-content"
+            hx-swap="innerHTML"
+            hx-trigger="change"
+            hx-include="this"
+          >
+            {"".join(options)}
+          </select>
+        </label>
+        """
+    else:
+        month_selector = f'<p class="empty-state">Aucune dépense pour {month_label}.</p>'
+
+    employee_rows = []
+    for employee in stats["employees"]:
+        employee_rows.append(
+            f"""
+            <tr>
+              <td>{_escape(employee["employe"])}</td>
+              <td>{employee["count"]}</td>
+              <td>{employee["montant_ttc"]:.2f} €</td>
+              <td>{employee["tva"]:.2f} €</td>
+            </tr>
+            """
+        )
+
+    employees_table = ""
+    if employee_rows:
+        employees_table = f"""
+        <div class="table-wrapper">
+          <table class="expenses-table dashboard-table">
+            <thead>
+              <tr>
+                <th>Employé</th>
+                <th>Notes</th>
+                <th>Total TTC</th>
+                <th>Total TVA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {"".join(employee_rows)}
+            </tbody>
+          </table>
+        </div>
+        """
+    else:
+        employees_table = '<p class="empty-state">Aucune dépense pour ce mois.</p>'
+
+    return f"""
+    <div class="dashboard-header">
+      <h3>{_escape(month_label)}</h3>
+      {month_selector}
+    </div>
+    <div class="dashboard-cards">
+      <div class="stat-card">
+        <span class="stat-label">Dépenses mensuelles</span>
+        <span class="stat-value">{stats["total_ttc"]:.2f} €</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">TVA mensuelle</span>
+        <span class="stat-value">{stats["total_tva"]:.2f} €</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Notes du mois</span>
+        <span class="stat-value">{stats["count"]}</span>
+      </div>
+    </div>
+    <h4 class="dashboard-subtitle">Dépenses par employé</h4>
+    {employees_table}
+    """
+
+
 @app.get("/")
 async def index():
     return FileResponse(os.path.join(static_dir, "index.html"))
+
+
+@app.get("/api/dashboard", response_class=HTMLResponse)
+async def dashboard(month: Optional[str] = Query(None)):
+    try:
+        sheets_client = GoogleSheetsClient()
+        expenses = sheets_client.list_expenses()
+        return render_dashboard(expenses, month or "")
+    except Exception as exc:
+        return f'<p class="alert alert-error">Impossible de charger le tableau de bord : {html.escape(str(exc))}</p>'
 
 
 @app.get("/api/expenses", response_class=HTMLResponse)
@@ -204,6 +339,7 @@ async def submit(
     tva: Optional[str] = Form(None),
     devise: str = Form("EUR"),
     description: Optional[str] = Form(None),
+    employe: Optional[str] = Form(None),
     confiance: Optional[str] = Form(None),
     image_base64: Optional[str] = Form(None),
     media_type: Optional[str] = Form(None),
@@ -217,6 +353,7 @@ async def submit(
             "tva": float(tva) if tva else None,
             "devise": devise or "EUR",
             "description": description or None,
+            "employe": employe or None,
             "confiance": int(confiance) if confiance else None,
         }
 

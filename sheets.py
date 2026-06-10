@@ -71,12 +71,38 @@ class GoogleSheetsClient:
             data.get("devise", "EUR"),
             data.get("description"),
             data.get("confiance"),
+            data.get("employe"),
             image_url,
         ]
 
         self.worksheet.append_row(row, value_input_option="USER_ENTERED")
 
         return row
+
+    @staticmethod
+    def _parse_row(row: list[str]) -> dict:
+        padded = row + [""] * max(0, 11 - len(row))
+
+        if len(row) <= 10 and str(padded[9]).startswith("http"):
+            employe = ""
+            image_url = padded[9]
+        else:
+            employe = padded[9]
+            image_url = padded[10]
+
+        return {
+            "horodatage": padded[0],
+            "type_document": padded[1],
+            "fournisseur": padded[2],
+            "date": padded[3],
+            "montant_ttc": padded[4],
+            "tva": padded[5],
+            "devise": padded[6],
+            "description": padded[7],
+            "confiance": padded[8],
+            "employe": employe,
+            "image_url": image_url,
+        }
 
     def list_expenses(self) -> list[dict]:
         rows = self.worksheet.get_all_values()
@@ -85,21 +111,7 @@ class GoogleSheetsClient:
 
         expenses = []
         for row in reversed(rows[1:]):
-            padded = row + [""] * (10 - len(row))
-            expenses.append(
-                {
-                    "horodatage": padded[0],
-                    "type_document": padded[1],
-                    "fournisseur": padded[2],
-                    "date": padded[3],
-                    "montant_ttc": padded[4],
-                    "tva": padded[5],
-                    "devise": padded[6],
-                    "description": padded[7],
-                    "confiance": padded[8],
-                    "image_url": padded[9],
-                }
-            )
+            expenses.append(self._parse_row(row))
 
         return expenses
 
@@ -115,6 +127,7 @@ if __name__ == "__main__":
         "tva": 2.49,
         "devise": "EUR",
         "description": "Repas professionnel",
+        "employe": "Romain",
         "confiance": 95,
     }
 
